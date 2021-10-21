@@ -7,6 +7,7 @@ public class PlayerController : MonoBehaviour
     //Player
     [SerializeField]
     private float speed;
+    private float normalSpeed;
 
     private Rigidbody2D rb2;
 
@@ -15,9 +16,20 @@ public class PlayerController : MonoBehaviour
     private float playerSpriteWidth;
 
     //Bullet
-    private GameObject bullet;
-    private float timeToShoot;
-    private float fireRate;
+    [SerializeField]
+    private GameObject playerBullet;
+    [SerializeField]
+    private GameObject[] bulletOrigins;
+    private float bulletCurrentTime = 0f;
+    [SerializeField]
+    private float bulletSpawnTime;
+    private float normalBulletTime;
+
+    //PowerUp
+    [Header("PowerUp Boost")]
+    [SerializeField]
+    private float boostTime;
+    private float boostDeltaTime;
 
     //Camara
     [SerializeField]
@@ -34,33 +46,38 @@ public class PlayerController : MonoBehaviour
         cameraXBounds.y = camara.ViewportToWorldPoint(new Vector2(1f, 1f)).x;
 
         playerSpriteWidth = GetComponent<SpriteRenderer>().bounds.size.x * 0.5f;
+
+        normalBulletTime = bulletSpawnTime;
+        normalSpeed = speed;
     }
 
     // Update is called once per frame
     private void Update()
     {
         desiredMovement = new Vector2(Input.GetAxis("Horizontal"), 0f);
+
+        //Disparo
+        Shoot();
     }
     private void FixedUpdate()
     {
         MoveCharacter(desiredMovement);
     }
-    private void Shooting()
+    private void Shoot()
     {
-        float delta = Time.deltaTime * 1000;
-        bool canShoot = false;
-        timeToShoot += delta;
-        if (timeToShoot > fireRate)
-        {
-            canShoot = true;
-            timeToShoot = 0;
-        }
+        //Aumentamos el tiempo para spawnear la bala
+        bulletCurrentTime += Time.deltaTime;
 
-        if (canShoot)
+        //Comprobamos si ha pasado suficiente tiempo para spawnear una bala
+        if(bulletCurrentTime >= bulletSpawnTime)
         {
-            timeToShoot = 0;
-            GameObject temporalBullet = Instantiate(bullet, new Vector3(transform.position.x, transform.position.y, 1), transform.rotation);
-            Destroy(temporalBullet, 3);
+            bulletCurrentTime = 0f;
+
+            for (int i = 0; i < bulletOrigins.Length; i++)
+            {
+                Instantiate(playerBullet, bulletOrigins[i].transform.position, Quaternion.identity); 
+            }
+
         }
     }
     private void MoveCharacter(Vector2 direction)
@@ -72,5 +89,30 @@ public class PlayerController : MonoBehaviour
         finalPositionX = Mathf.Clamp(finalPositionX, cameraXBounds.x + playerSpriteWidth, cameraXBounds.y - playerSpriteWidth);
 
         rb2.MovePosition(new Vector2(finalPositionX, rb2.position.y));
+    }
+    IEnumerator powerUpBoost()
+    {
+        if (Random.Range(0f, 1f) >= 0.5f)
+        {
+            bulletSpawnTime *= 0.5f;
+            yield return new WaitForSeconds(10);
+            bulletSpawnTime *= 2f;
+        }
+        else
+        {
+            speed *= 2f;
+            yield return new WaitForSeconds(10);
+            speed *= 0.5f;
+        }
+    }
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        if (collision.CompareTag("Enemy")){
+            Destroy(gameObject);
+        }
+        else if (collision.CompareTag("PowerUp"))
+        {
+            StartCoroutine(powerUpBoost());
+        }
     }
 }
